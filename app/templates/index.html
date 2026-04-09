@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stroke Risk Prediction</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f2eb;
+    --surface: #ffffff;
+    --surface2: #f0ece2;
+    --border: #d8d2c4;
+    --accent: #c84b2f;
+    --accent2: #2a5f8f;
+    --text: #1a1814;
+    --muted: #7a7468;
+    --success-bg: #e8f4e8;
+    --success-border: #4a9a4a;
+    --success-text: #1a4a1a;
+    --danger-bg: #faeae6;
+    --danger-border: #c84b2f;
+    --danger-text: #5a1a0a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Syne', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  .page { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+
+  .sidebar {
+    background: var(--text); color: var(--bg);
+    padding: 2.5rem 1.5rem; display: flex; flex-direction: column;
+    position: sticky; top: 0; height: 100vh; overflow: hidden;
+  }
+  .sidebar-logo { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(245,242,235,0.4); margin-bottom: 2rem; font-family: 'IBM Plex Mono', monospace; }
+  .sidebar h1 { font-size: 28px; font-weight: 700; line-height: 1.15; margin-bottom: 1rem; }
+  .sidebar h1 em { font-style: normal; color: #e8a090; }
+  .sidebar-desc { font-size: 12px; color: rgba(245,242,235,0.55); line-height: 1.7; margin-bottom: 1.5rem; font-weight: 400; }
+  .model-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(245,242,235,0.07); border: 1px solid rgba(245,242,235,0.14); border-radius: 4px; padding: 7px 11px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: rgba(245,242,235,0.65); margin-bottom: 1rem; }
+  .model-dot { width: 6px; height: 6px; border-radius: 50%; background: #6bffc4; flex-shrink: 0; }
+  .sidebar-factors { margin-top: auto; }
+  .sidebar-factors p { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(245,242,235,0.3); margin-bottom: 8px; font-family: 'IBM Plex Mono', monospace; }
+  .factor-list { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+  .factor-list li { font-size: 12px; color: rgba(245,242,235,0.45); display: flex; align-items: center; gap: 8px; }
+  .factor-list li::before { content: ''; width: 10px; height: 1px; background: rgba(245,242,235,0.2); flex-shrink: 0; }
+
+  .main { padding: 2.5rem 2rem; max-width: 680px; }
+  .step-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px; }
+  .step-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .section { margin-bottom: 1.75rem; }
+  .section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; padding-bottom: 7px; border-bottom: 1px solid var(--border); font-family: 'IBM Plex Mono', monospace; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 10px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .field select, .field input { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 500; padding: 10px 12px; width: 100%; transition: border-color 0.2s, box-shadow 0.2s; -webkit-appearance: none; appearance: none; }
+  .field select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237a7468' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 30px; cursor: pointer; }
+  .field select:focus, .field input:focus { outline: none; border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(42,95,143,0.1); }
+  .field input::placeholder { color: #bbb; font-weight: 400; }
+
+  .meter-section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; margin-bottom: 1.5rem; }
+  .meter-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .meter-lbl { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .meter-pct { font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 500; color: var(--text); }
+  .meter-bar { height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; margin-bottom: 5px; }
+  .meter-fill { height: 100%; border-radius: 4px; width: 0%; transition: width 0.6s cubic-bezier(0.4,0,0.2,1), background 0.4s; background: var(--accent2); }
+  .meter-ticks { display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); }
+
+  .submit-btn { width: 100%; padding: 14px 20px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 0.03em; cursor: pointer; transition: background 0.2s, transform 0.1s; margin-bottom: 1.5rem; }
+  .submit-btn:hover { background: #a83820; }
+  .submit-btn:active { transform: scale(0.99); }
+
+  .result { border-radius: 10px; padding: 1.5rem; display: none; animation: slideIn 0.35s ease; }
+  @keyframes slideIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  .result.high { background: var(--danger-bg); border: 1.5px solid var(--danger-border); }
+  .result.low { background: var(--success-bg); border: 1.5px solid var(--success-border); }
+  .result-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .result-tag { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 10px; border-radius: 3px; }
+  .result.high .result-tag { background: rgba(200,75,47,0.15); color: var(--accent); }
+  .result.low .result-tag { background: rgba(74,154,74,0.15); color: #2a7a2a; }
+  .result-score { font-family: 'IBM Plex Mono', monospace; font-size: 30px; font-weight: 500; }
+  .result.high .result-score { color: var(--accent); }
+  .result.low .result-score { color: #2a7a2a; }
+  .result-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; line-height: 1.25; }
+  .result.high .result-title { color: var(--danger-text); }
+  .result.low .result-title { color: var(--success-text); }
+  .result-body { font-size: 13px; line-height: 1.75; font-weight: 400; margin-bottom: 12px; }
+  .result.high .result-body { color: #7a3020; }
+  .result.low .result-body { color: #2a5a2a; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .chip { font-family: 'IBM Plex Mono', monospace; font-size: 10px; padding: 4px 9px; border-radius: 3px; }
+  .result.high .chip { background: rgba(200,75,47,0.1); color: #8a2010; border: 1px solid rgba(200,75,47,0.18); }
+  .result.low .chip { background: rgba(74,154,74,0.1); color: #1a5a1a; border: 1px solid rgba(74,154,74,0.18); }
+  .disclaimer { font-size: 11px; color: var(--muted); margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); line-height: 1.6; font-family: 'IBM Plex Mono', monospace; }
+
+  @media (max-width: 680px) {
+    .page { grid-template-columns: 1fr; }
+    .sidebar { position: static; height: auto; }
+    .grid, .grid-3 { grid-template-columns: 1fr 1fr; }
+    .main { padding: 1.5rem 1rem; max-width: 100%; }
+  }
+  @media (max-width: 420px) {
+    .grid, .grid-3 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <aside class="sidebar">
+    <div class="sidebar-logo">MedML · v2.0</div>
+    <h1>Stroke<br><em>Risk</em><br>Predictor</h1>
+    <p class="sidebar-desc">An offline decision tree model. Runs entirely in your browser — no internet, no API key, no server required.</p>
+    <div class="model-badge"><div class="model-dot"></div>Decision Tree · Offline</div>
+    <div class="sidebar-factors">
+      <p>Input features</p>
+      <ul class="factor-list">
+        <li>Age</li>
+        <li>Hypertension</li>
+        <li>Heart disease</li>
+        <li>Avg glucose level</li>
+        <li>BMI</li>
+        <li>Smoking status</li>
+        <li>Gender, work type</li>
+        <li>Marital &amp; residence</li>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="step-label">Patient assessment form</div>
+
+    <div class="section">
+      <div class="section-title">Personal details</div>
+      <div class="grid" style="margin-bottom:12px;">
+        <div class="field">
+          <label>Gender</label>
+          <select id="gender">
+            <option value="1">Male</option>
+            <option value="0">Female</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Age (years)</label>
+          <input type="number" id="age" min="1" max="120" placeholder="e.g. 45">
+        </div>
+      </div>
+      <div class="grid" style="margin-bottom:12px;">
+        <div class="field">
+          <label>Ever married</label>
+          <select id="ever_married">
+            <option value="1">Yes</option>
+            <option value="0">No</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Residence type</label>
+          <select id="residence_type">
+            <option value="1">Urban</option>
+            <option value="0">Rural</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="field">
+          <label>Work type</label>
+          <select id="work_type">
+            <option value="2">Private</option>
+            <option value="0">Government job</option>
+            <option value="3">Self-employed</option>
+            <option value="1">Never worked</option>
+            <option value="4">Children</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Smoking status</label>
+          <select id="smoking_status">
+            <option value="2">Never smoked</option>
+            <option value="1">Formerly smoked</option>
+            <option value="3">Smokes</option>
+            <option value="0">Unknown</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Clinical measurements</div>
+      <div class="grid-3" style="margin-bottom:12px;">
+        <div class="field">
+          <label>Hypertension</label>
+          <select id="hypertension">
+            <option value="0">No</option>
+            <option value="1">Yes</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Heart disease</label>
+          <select id="heart_disease">
+            <option value="0">No</option>
+            <option value="1">Yes</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>BMI</label>
+          <input type="number" id="bmi" step="0.1" placeholder="e.g. 24.5">
+        </div>
+      </div>
+      <div class="field">
+        <label>Average glucose level (mg/dL)</label>
+        <input type="number" id="avg_glucose" step="0.1" placeholder="e.g. 105.5">
+      </div>
+    </div>
+
+    <div class="meter-section">
+      <div class="meter-top">
+        <span class="meter-lbl">Live risk indicator</span>
+        <span class="meter-pct" id="meterPct">0%</span>
+      </div>
+      <div class="meter-bar"><div class="meter-fill" id="meterFill"></div></div>
+      <div class="meter-ticks"><span>Low</span><span>Moderate</span><span>High</span></div>
+    </div>
+
+    <button class="submit-btn" onclick="runPrediction()">Run Prediction →</button>
+
+    <div class="result" id="result">
+      <div class="result-header">
+        <div class="result-tag" id="result-tag"></div>
+        <div class="result-score" id="result-score"></div>
+      </div>
+      <div class="result-title" id="result-title"></div>
+      <div class="result-body" id="result-body"></div>
+      <div class="chips" id="chips"></div>
+    </div>
+
+    <p class="disclaimer">⚠ For educational &amp; research purposes only. Not a substitute for professional medical diagnosis or clinical advice. Always consult a qualified healthcare provider.</p>
+  </main>
+</div>
+
+<script>
+// ─── DECISION TREE (JavaScript) ───────────────────────────
+// Based on stroke risk research & Kaggle stroke dataset patterns.
+// Threshold: score >= 35 → elevated risk
+function decisionTree(f) {
+  let prob = 0;
+  let path = [];
+
+  // 1. Age — strongest predictor
+  if (f.age < 45) {
+    prob += 5; path.push("Age < 45");
+    if (f.hypertension) { prob += 20; path.push("Hypertension"); }
+    if (f.heart_disease) { prob += 18; path.push("Heart disease"); }
+    if (f.avg_glucose > 200) { prob += 22; path.push("Glucose > 200 mg/dL"); }
+    else if (f.avg_glucose > 140) { prob += 10; path.push("Glucose 140-200 mg/dL"); }
+    if (f.smoking === 3) { prob += 7; path.push("Current smoker"); }
+    if (f.bmi > 30) { prob += 4; path.push("Obese BMI"); }
+
+  } else if (f.age < 60) {
+    prob += 20; path.push("Age 45-59");
+    if (f.hypertension) { prob += 18; path.push("Hypertension"); }
+    if (f.heart_disease) { prob += 16; path.push("Heart disease"); }
+    if (f.avg_glucose > 200) { prob += 16; path.push("Glucose > 200 mg/dL"); }
+    else if (f.avg_glucose > 140) { prob += 7; path.push("Glucose 140-200 mg/dL"); }
+    if (f.bmi > 30) { prob += 5; path.push("Obese BMI"); }
+    if (f.smoking === 3) { prob += 6; path.push("Current smoker"); }
+    else if (f.smoking === 1) { prob += 3; path.push("Former smoker"); }
+
+  } else {
+    prob += 35; path.push("Age ≥ 60 (high base risk)");
+    if (f.hypertension) { prob += 14; path.push("Hypertension"); }
+    if (f.heart_disease) { prob += 14; path.push("Heart disease"); }
+    if (f.avg_glucose > 200) { prob += 12; path.push("Glucose > 200 mg/dL"); }
+    else if (f.avg_glucose > 140) { prob += 5; path.push("Glucose 140-200 mg/dL"); }
+    if (f.bmi > 30) { prob += 4; path.push("Obese BMI"); }
+    else if (f.bmi < 18.5) { prob += 3; path.push("Underweight"); }
+    if (f.smoking === 3) { prob += 5; path.push("Current smoker"); }
+    else if (f.smoking === 1) { prob += 3; path.push("Former smoker"); }
+    if (f.gender === 1 && f.age > 70) { prob += 3; path.push("Male > 70 yrs"); }
+  }
+
+  prob = Math.min(Math.round(prob), 95);
+  return { prediction: prob >= 35 ? 1 : 0, probability: prob, path };
+}
+
+function getFeatures() {
+  return {
+    age:          parseFloat(document.getElementById('age').value)         || 30,
+    hypertension: parseInt(document.getElementById('hypertension').value)  || 0,
+    heart_disease:parseInt(document.getElementById('heart_disease').value) || 0,
+    avg_glucose:  parseFloat(document.getElementById('avg_glucose').value) || 90,
+    bmi:          parseFloat(document.getElementById('bmi').value)         || 22,
+    smoking:      parseInt(document.getElementById('smoking_status').value)|| 2,
+    gender:       parseInt(document.getElementById('gender').value)        || 1,
+    ever_married: parseInt(document.getElementById('ever_married').value)  || 1,
+    work_type:    parseInt(document.getElementById('work_type').value)     || 2,
+    residence:    parseInt(document.getElementById('residence_type').value)|| 1
+  };
+}
+
+function updateMeter() {
+  const res = decisionTree(getFeatures());
+  const fill = document.getElementById('meterFill');
+  fill.style.width = res.probability + '%';
+  fill.style.background = res.probability >= 55
+    ? '#c84b2f'
+    : res.probability >= 35
+    ? '#e88a2f'
+    : '#2a5f8f';
+  document.getElementById('meterPct').textContent = res.probability + '%';
+}
+
+document.querySelectorAll('select, input').forEach(el => {
+  el.addEventListener('change', updateMeter);
+  el.addEventListener('input', updateMeter);
+});
+
+function runPrediction() {
+  const age = document.getElementById('age').value;
+  const glucose = document.getElementById('avg_glucose').value;
+  const bmi = document.getElementById('bmi').value;
+
+  if (!age || !glucose || !bmi) {
+    alert('Please fill in Age, Glucose Level, and BMI to continue.');
+    return;
+  }
+
+  const f = getFeatures();
+  const result = decisionTree(f);
+  const isHigh = result.prediction === 1;
+  const div = document.getElementById('result');
+
+  div.className = 'result ' + (isHigh ? 'high' : 'low');
+  document.getElementById('result-tag').textContent = isHigh ? '⚠ Elevated Stroke Risk' : '✓ Lower Stroke Risk';
+  document.getElementById('result-score').textContent = result.probability + '%';
+  document.getElementById('result-title').textContent = isHigh
+    ? 'This patient shows signs of elevated stroke risk.'
+    : 'This patient presents a lower likelihood of stroke.';
+
+  let explanation = isHigh
+    ? `The decision tree assigned a risk score of ${result.probability}% — above the 35% threshold.`
+    : `The decision tree assigned a risk score of ${result.probability}% — below the 35% threshold.`;
+
+  if (isHigh) {
+    if (f.age >= 60) explanation += ` Age (${f.age}) is a primary contributor.`;
+    if (f.hypertension) explanation += ` Hypertension significantly increases risk.`;
+    if (f.heart_disease) explanation += ` Heart disease is a major compounding factor.`;
+    if (f.avg_glucose > 140) explanation += ` Glucose (${f.avg_glucose} mg/dL) is elevated.`;
+    if (f.bmi > 30) explanation += ` BMI of ${f.bmi} indicates obesity.`;
+    if (f.smoking === 3) explanation += ` Active smoking adds vascular risk.`;
+    explanation += ' Clinical evaluation is recommended.';
+  } else {
+    if (f.age < 45) explanation += ` Young age (${f.age}) is protective.`;
+    if (!f.hypertension) explanation += ` No hypertension detected.`;
+    if (!f.heart_disease) explanation += ` No heart disease present.`;
+    if (f.avg_glucose <= 140) explanation += ` Glucose (${f.avg_glucose} mg/dL) is within range.`;
+    if (f.smoking === 2) explanation += ` Non-smoking status is beneficial.`;
+    explanation += ' Maintain a healthy lifestyle and regular check-ups.';
+  }
+
+  document.getElementById('result-body').textContent = explanation;
+
+  const chipsEl = document.getElementById('chips');
+  chipsEl.innerHTML = '';
+  result.path.forEach(p => {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.textContent = p;
+    chipsEl.appendChild(chip);
+  });
+
+  div.style.display = 'block';
+  div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+</script>
+</body>
+</html>
