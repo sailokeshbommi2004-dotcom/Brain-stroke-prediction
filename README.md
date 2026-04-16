@@ -149,14 +149,6 @@ This project is developed for **educational purposes only** and should not be us
 
 ---
 
-## 👨‍💻 Author
-
-* **Your Name**
-* Final Year B.Sc (MPCs) Student
-* Passionate about Machine Learning & Web Development
-
----
-
 ## ⭐ Acknowledgements
 
 * Healthcare Stroke Dataset (Kaggle)
